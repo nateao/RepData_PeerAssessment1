@@ -5,21 +5,182 @@ output:
     keep_md: true
 ---
 
-
 ## Loading and preprocessing the data
 
+This R Markdown document satisfies Peer Assessment 1 for the Reproducile Research course in the Coursera Johns Hopkins Data Science Specialization. 
 
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
 
-## What is mean total number of steps taken per day?
+Our first step is to read the data:
 
+```{r load}
+activity <- read.csv("activity.csv")
+```
 
+##What is the mean total number of steps taken per day?
 
-## What is the average daily activity pattern?
+My experience is primarly using SQL, so I will be making use of the sqldf package and associated packages.
 
+```{r}
+library(sqldf)
+library(tcltk)
+```
 
+The data is first organized into a new data frame containing each date and the total number of steps taken on each date. 
 
-## Imputing missing values
+```{r}
+activity_stepsperday <- sqldf("
+  SELECT  date, 
+          SUM(steps)
+  FROM activity
+  GROUP BY  date
+")
+colnames(activity_stepsperday) <- c("date", "steps_total")
+activity_stepsperday$steps_total <- as.numeric(activity_stepsperday$steps_total)
+```
 
+A look at the histogram for these data shows that they are not quite normally distributed, with a bit more density to the left of the median:
 
+```{r}
+hist(activity_stepsperday$steps_total, main = "Histogram of Total Steps Per Day", xlab = "Total Steps", ylab = "Frequency")
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+Given the histogram above, the mean and median are not surprising:
+
+```{r}
+mean(activity_stepsperday$steps_total, na.rm = TRUE)
+median(activity_stepsperday$steps_total, na.rm = TRUE)
+```
+
+##What is the average daily activity pattern?
+
+We now need to organize the original data into a data frame containing the interval and the average number of steps taken (averaged across all days).
+
+```{r}
+activity_stepsinterval <- sqldf("
+  SELECT  interval,
+          AVG(steps)
+  FROM  activity
+  GROUP BY  interval
+")
+colnames(activity_stepsinterval) <- c("interval", "steps_avg")
+activity_stepsinterval$steps_avg <- as.numeric(activity_stepsinterval$steps_avg)
+```
+
+We'll use ggplot2 to view the time series plot for these data.
+
+```{r}
+library(ggplot2)
+ggplot(activity_stepsinterval, aes(x = interval, y = steps_avg)) + geom_line() + labs(title = "Time Series Graph of Average Number of Steps Taken", x = "Interval", y = "Average Number of Steps")
+```
+
+This graph suggests that the interval containing the maximum umber of steps is around 800. Let's verify.
+
+```{r}
+activity_stepsinterval_max <- 
+    subset(activity_stepsinterval, activity_stepsinterval$steps_avg == max(activity_stepsinterval$steps_avg))
+activity_stepsinterval_max$interval
+```
+
+Indeed, the max in this case matches up with our graph.
+
+##Imputing missing values
+
+Thus far, we have been excluding the values of "steps" which are NA in our data set. There are quite a few rows in our original data set with NA values, as we see below.
+
+```{r}
+sum(is.na(activity$steps))
+```
+
+Let's now replace those NA values with the average number of steps in the given interval, as we calculated in the last section.
+
+```{r}
+activity_replaceNA <- sqldf("
+  SELECT  (CASE WHEN A.steps IS NULL THEN AA.steps_avg ELSE A.steps END)/1.0000000,
+          A.date,
+          A.interval
+  FROM  activity A JOIN
+        activity_stepsinterval AA ON
+          A.interval = AA.interval
+  ")
+colnames(activity_replaceNA) <- c("steps", "date", "interval")
+```
+
+The data frame "activity_replaceNA" is now equivalent to the data frame "activity" except with all NA replaced with the average number of steps in the given interval. Let us now summarize these data in a new data frame containing each date and the total number of steps taken on each date, as in the first section.
+
+```{r}
+activity_replaceNA_stepsperday <- sqldf("
+  SELECT  date,
+          SUM(steps)
+  FROM  activity_replaceNA
+  GROUP BY  date
+")
+colnames(activity_replaceNA_stepsperday) <- c("date", "steps_total")
+activity_replaceNA_stepsperday$steps_total <- as.numeric(activity_replaceNA_stepsperday$steps_total)
+```
+
+Let's now compare the histogram of these data to the histogram in the first section.
+
+```{r}
+hist(activity_replaceNA_stepsperday$steps_total, main = "Histogram of Total Steps Per Day - Excluding NAs", xlab = "Total Steps", ylab = "Frequency")
+```
+
+The shape of the histogram is similar, but the middle section is higher and the left-most sections are lower. This makes sense. The replacement we've done has had the effect of replacing the NAs with the mean of the data set in section 1.
+
+```{r}
+mean(activity_replaceNA_stepsperday$steps_total)
+median(activity_replaceNA_stepsperday$steps_total)
+```
+
+This replacement has the effect of "shifting the data" slightly to the right. That is to say, the mean has not changed, but the median is now equal to the mean, whereas the median was less than the mean in section 1.
+
+##Are there differences in activity patterns between weekdays and weekends?
+
+In order to explore this question, we first add a column to the data frame activity_replaceNA to indicate whether a given day is a weekday or a weekend day. 
+
+```{r}
+activity_replaceNA$day <- weekdays(as.Date(activity_replaceNA$date))
+activity_replaceNA <- sqldf("
+  SELECT  steps,
+          date,
+          interval,
+          CASE WHEN day = 'Saturday' OR day = 'Sunday' THEN 'Weekend' ELSE 'Weekday' END
+  FROM  activity_replaceNA
+")
+colnames(activity_replaceNA) <- c("steps", "date", "interval", "day_type")
+```
+
+We must also create a new data frame containing the interval and the average number of steps taken (averaged across all weekdays or weekend days), excluding the NAs.
+
+```{r}
+activity_replaceNA_stepsinterval <- sqldf("
+  SELECT  interval,
+          day_type,
+          AVG(steps)
+  FROM  activity_replaceNA
+  GROUP BY  interval,
+            day_type
+")
+colnames(activity_replaceNA_stepsinterval) <- c("interval", "day_type", "steps_avg")
+```
+
+Let's take a look at a panel plot containing time series graphs to compare weekday and weekend activity.
+
+```{r}
+ggplot(activity_replaceNA_stepsinterval, aes(x = interval, y = steps_avg)) + geom_line() + facet_wrap(~day_type, ncol = 1) + labs(title = "Time Series Graph of Average Number of Steps Taken", x = "Interval", y = "Average Number of Steps")
+```
+
+These plots have maximum average numbers of steps around the same interval. However, the weekday maximum average number of steps is larger, while the weekend average numbers of steps appear to be consistently larger. To confirm this, let's compute the overall average number of steps taken on weekdays and compare it to weekends.
+
+```{r}
+day_type_averages <- sqldf("
+  SELECT  day_type,
+          AVG(steps)
+  FROM  activity_replaceNA
+  GROUP BY  day_type
+")
+colnames(day_type_averages) <- c("day_type", "steps_avg")
+day_type_averages
+```
+
+Indeed, on average, more steps are taken overall on the weekend than on weekdays.
