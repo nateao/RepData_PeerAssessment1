@@ -1,4 +1,6 @@
-# Reproducible Research - Peer Assessment 1
+# Reproducible Research: Peer Assessment 1
+
+## Loading and preprocessing the data
 
 This R Markdown document satisfies Peer Assessment 1 for the Reproducile Research course in the Coursera Johns Hopkins Data Science Specialization. 
 
@@ -18,6 +20,16 @@ My experience is primarly using SQL, so I will be making use of the sqldf packag
 
 ```r
 library(sqldf)
+```
+
+```
+## Loading required package: gsubfn
+## Loading required package: proto
+## Loading required package: RSQLite
+## Loading required package: DBI
+```
+
+```r
 library(tcltk)
 ```
 
@@ -42,7 +54,7 @@ A look at the histogram for these data shows that they are not quite normally di
 hist(activity_stepsperday$steps_total, main = "Histogram of Total Steps Per Day", xlab = "Total Steps", ylab = "Frequency")
 ```
 
-![plot of chunk unnamed-chunk-3](figure/unnamed-chunk-3-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-3-1.png) 
 
 Given the histogram above, the mean and median are not surprising:
 
@@ -87,7 +99,7 @@ library(ggplot2)
 ggplot(activity_stepsinterval, aes(x = interval, y = steps_avg)) + geom_line() + labs(title = "Time Series Graph of Average Number of Steps Taken", x = "Interval", y = "Average Number of Steps")
 ```
 
-![plot of chunk unnamed-chunk-6](figure/unnamed-chunk-6-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-6-1.png) 
 
 This graph suggests that the interval containing the maximum umber of steps is around 800. Let's verify.
 
@@ -153,7 +165,7 @@ Let's now compare the histogram of these data to the histogram in the first sect
 hist(activity_replaceNA_stepsperday$steps_total, main = "Histogram of Total Steps Per Day - Excluding NAs", xlab = "Total Steps", ylab = "Frequency")
 ```
 
-![plot of chunk unnamed-chunk-11](figure/unnamed-chunk-11-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-11-1.png) 
 
 The shape of the histogram is similar, but the middle section is higher and the left-most sections are lower. This makes sense. The replacement we've done has had the effect of replacing the NAs with the mean of the data set in section 1.
 
@@ -215,7 +227,7 @@ Let's take a look at a panel plot containing time series graphs to compare weekd
 ggplot(activity_replaceNA_stepsinterval, aes(x = interval, y = steps_avg)) + geom_line() + facet_wrap(~day_type, ncol = 1) + labs(title = "Time Series Graph of Average Number of Steps Taken", x = "Interval", y = "Average Number of Steps")
 ```
 
-![plot of chunk unnamed-chunk-15](figure/unnamed-chunk-15-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-15-1.png) 
 
 These plots have maximum average numbers of steps around the same interval. However, the weekday maximum average number of steps is larger, while the weekend average numbers of steps appear to be consistently larger. To confirm this, let's compute the overall average number of steps taken on weekdays and compare it to weekends.
 
